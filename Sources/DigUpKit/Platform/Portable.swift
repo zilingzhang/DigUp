@@ -13,6 +13,14 @@ struct FileInfo {
     let dataless: Bool
 }
 
+/// A file's own size and modification time, for what isn't the crawl. Not FileManager's `attributesOfItem`: on Windows
+/// it reads the same file facts that trap on a file of 2 to 4 GiB (`DirectoryWalk`).
+public enum FileFacts {
+    public static func size(atPath path: String) -> Int64? { FileSystem.info(of: path)?.size }
+    /// Seconds since 1970.
+    public static func modified(atPath path: String) -> Double? { FileSystem.info(of: path)?.mtime }
+}
+
 #if !canImport(Darwin)
 /// Darwin's `autoreleasepool`: elsewhere there's no Objective-C runtime and nothing to drain, so the body just runs.
 @discardableResult

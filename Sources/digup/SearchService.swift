@@ -263,8 +263,7 @@ final class SearchService: @unchecked Sendable {   // its state is guarded by `l
         let kind = request["kind"] as? String ?? "image"
         let loc = (request["loc"] as? NSNumber)?.doubleValue
         let pixels = min(max(request["pixels"] as? Int ?? 1024, 32), 2048)
-        let modified = (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date)?
-            .timeIntervalSince1970 ?? 0
+        let modified = FileFacts.modified(atPath: path) ?? 0   // a long video may be 2 to 4 GiB (`FileFacts`)
         let key = "\(path)|\(modified)|\(kind)|\(loc ?? -1)|\(pixels)"
         if let done = renderLock.withLock({ rendered[key] }), FileManager.default.fileExists(atPath: done) {
             return ["image": done]

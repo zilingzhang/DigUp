@@ -26,7 +26,9 @@ public enum Crawler {
     public static func crawl(_ roots: [URL], options: IndexOptions) -> CrawlReport {
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser.path
+        #if !os(Windows)
         let keys = FileSystem.crawlKeys
+        #endif
         var report = CrawlReport()
         var projectRoots = Set<String>()
         var repos = GitRepos()
@@ -47,16 +49,23 @@ public enum Crawler {
                 FolderSelection.isInside($0, root.path) || FolderSelection.isInside($0, real)
             }.flatMap { [$0, FolderSelection.realPath($0)] }
             #if os(Windows)
-            guard let walker = FileSystem.walk(root, keys: keys) else { continue }
+            guard let walker = FileSystem.walk(root) else { continue }
             #else
             guard let walker = fm.enumerator(at: root, includingPropertiesForKeys: keys,
                                              options: [.skipsHiddenFiles, .skipsPackageDescendants],
                                              errorHandler: { _, _ in true }) else { continue }
             #endif
             func visit(_ url: URL) {
+                #if os(Windows)
+                // The walk's listing says what's a folder; Foundation's resource values trap here (`DirectoryWalk`).
+                let values: URLResourceValues? = nil
+                let isFolder = url.hasDirectoryPath
+                #else
                 let values = try? url.resourceValues(forKeys: Set(keys))
+                let isFolder = values?.isDirectory == true
+                #endif
                 let isPackage = FileSystem.isPackage(url, values)
-                if values?.isDirectory == true, !isPackage {
+                if isFolder, !isPackage {
                     if let reason = Rules.skipReason(forFolder: url, home: home, excluded: skips)
                         ?? (options.code ? Rules.codeSkipReason(forFolder: url) : nil) {
                         walker.skipDescendants()

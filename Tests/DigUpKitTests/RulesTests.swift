@@ -139,6 +139,26 @@ import Testing
         #expect(report.candidates.map { ($0.path as NSString).lastPathComponent } == ["trip.txt"])
     }
 
+    #if os(Windows)
+    /// Foundation's file facts trap on a file of 2 to 4 GiB on Windows, which ended every crawl of a folder holding one
+    /// (`DirectoryWalk`).
+    @Test func crawlGetsPastAFileOf2To4GiB() throws {
+        let inner = folder.appendingPathComponent("inner")
+        try FileManager.default.createDirectory(at: inner, withIntermediateDirectories: true)
+        try Data("notes about the trip".utf8).write(to: inner.appendingPathComponent("trip.txt"))
+        let big = folder.appendingPathComponent("long.mp4")
+        FileManager.default.createFile(atPath: big.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: big)
+        try handle.truncate(atOffset: 1 << 31)   // the size, without writing it
+        // Back to nothing after: removing it would ask Foundation for its facts too.
+        defer { try? handle.truncate(atOffset: 0); try? handle.close() }
+        let report = Crawler.crawl([folder], options: IndexOptions())
+        let found = report.candidates.map { (($0.path as NSString).lastPathComponent, $0.size) }
+        #expect(Dictionary(uniqueKeysWithValues: found) == ["long.mp4": 1 << 31, "trip.txt": 20])
+        #expect(FileFacts.size(atPath: big.path) == 1 << 31)
+    }
+    #endif
+
     @Test func changesCountOnlyWhereTheCrawlGoes() {
         let home = "/Users/me"
         func walked(_ path: String, root: String = home, skipping excluded: [String] = []) -> Bool {

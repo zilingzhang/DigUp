@@ -77,7 +77,7 @@ public final class IndexStore {
     /// Bytes on disk: the database and its write-ahead log.
     public static func size(of file: URL) -> Int64 {
         [file.path, file.path + "-wal"].reduce(0) { total, path in
-            total + ((try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int64) ?? 0)
+            total + (FileFacts.size(atPath: path) ?? 0)   // the index can pass 2 GiB (`FileFacts`)
         }
     }
 
